@@ -12,10 +12,9 @@ from scipy import signal
 
 import deepethogram.postprocessing
 
-# Funtion to subtract sholder position from elbow and foot coordinates
-
 
 def fix_limb_positions(df_in, set_reference):
+    # Funtion to subtract sholder position from elbow and foot coordinates
     # make empty DataFrame
     df_out = pd.DataFrame()
 
@@ -319,6 +318,7 @@ def classify_floor_type(
 
     return dlc_step_floor
 
+
 def get_ethogram_annotated_files(cfg):
     ethogram_results = {}
     for dirs in cfg.data.ethogram_labels_path:
@@ -328,14 +328,17 @@ def get_ethogram_annotated_files(cfg):
                     ethogram_results[file[:-11]] = os.path.join(root, file)
     return ethogram_results
 
+
 def get_dlc_annotated_files(cfg):
-    trial_names = [os.path.basename(x.split(".mp4")[0]) for x in glob.glob(os.path.join(cfg.data.dlc_labels_path, "*.mp4"))]
+    trial_names = [os.path.basename(x.split(".mp4")[0]) for x in glob.glob(
+        os.path.join(cfg.data.dlc_labels_path, "*.mp4"))]
     dlc_results = {}
     for trial_name in trial_names:
         dlc_results[trial_name] = os.path.join(
             cfg.data.dlc_labels_path, f"{trial_name}DLC_effnet_b6_rat_stepsDec12shuffle1_1030000.h5")
-        
+
     return dlc_results
+
 
 def get_valid_step_idx(cfg, trial_name, graph_preview):
     # DeepEthogram annotated files
@@ -396,7 +399,8 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
         y = df_coords_f["foot_y"].iloc[:]
         fig = plt.figure(figsize=(60, 4))
         ax = fig.add_subplot(111)
-        trans = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
+        trans = mtransforms.blended_transform_factory(
+            ax.transData, ax.transAxes)
 
         ax.plot(y, lw=1, c="k")
         ax.plot(
@@ -405,7 +409,8 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
         ax.plot(
             dlc_filtered_steps[~valid_step_idx],
             y[dlc_filtered_steps[~valid_step_idx]], "x", c="r")
-        ax.fill_between(np.arange(len(y)), 0, 1, where=predictions[:, 1]==1 ,facecolor='grey', alpha=0.5, transform=trans)
+        ax.fill_between(np.arange(len(
+            y)), 0, 1, where=predictions[:, 1] == 1, facecolor='grey', alpha=0.5, transform=trans)
         plt.show()
 
-    return valid_step_idx
+    return dlc_filtered_steps[valid_step_idx]
