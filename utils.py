@@ -28,11 +28,11 @@ def fix_limb_positions(df_in, set_reference):
 
     # Subtract coordinates
     if "x" in set_reference:
-        print("filtering x")
+        print("DLC: X-coordinate calibration")
         df_out["foot_x"] = df_in.iloc[:, 0] - df_in.iloc[:, 4]
         df_out["elbow_x"] = df_in.iloc[:, 2] - df_in.iloc[:, 4]
     if "y" in set_reference:
-        print("filtering y")
+        print("DLC: Y-coordinate calibration")
         df_out["foot_y"] = df_in.iloc[:, 1] - df_in.iloc[:, 5]
         df_out["elbow_y"] = df_in.iloc[:, 3] - df_in.iloc[:, 5]
 
@@ -176,12 +176,12 @@ def extract_footstrike_onsets_f(
 
     peaks, _ = signal.find_peaks(
         x, height=-10, prominence=(5, None), width=(None, 50))
-    print("Detected onsets:", len(peaks))
+    print("DLC: Detected onsets:", len(peaks))
 
     # Filter by confidence
     # df_coords.iloc[:, 4] is the confidence of foot
     peaks = peaks[np.where(df_coords.iloc[peaks, 4] > 0.99)]
-    print("Filtered onsets #1:", len(peaks))
+    print("DLC: Filtered onsets by confidence:", len(peaks))
 
     # Get maximum y position of the foot inside 10 frames
     local_max_foot_height_idx = np.array(
@@ -215,7 +215,6 @@ def extract_footstrike_onsets_f(
         plt.plot(y, lw=1, c="r")
         plt.plot(filtered_peaks, y[filtered_peaks], "x", c="b")
         plt.show()
-    print("Refined onsets:", len(filtered_peaks))
     filtered_peaks = np.array(filtered_peaks)
 
     return filtered_peaks
@@ -309,6 +308,18 @@ def thresh_step_motion(
         plt.show()
 
     return motion_steps_idx
+
+
+def classify_floor_type(
+    dlc_filtered_steps,
+    predictions
+):
+    # detect whether the rat was in motion at detected step idx
+    dlc_step_floor = [predictions[step_idx, 2]
+                      for step_idx in dlc_filtered_steps]
+    dlc_step_floor = np.array(dlc_step_floor, dtype=np.int32)
+
+    return dlc_step_floor
 
 
 # ====================================================================================
