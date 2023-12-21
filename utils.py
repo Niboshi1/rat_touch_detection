@@ -1,14 +1,12 @@
 
 import glob
 import os
-import shutil
-import sys
 
-import cv2
 import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
 import numpy as np
 import pandas as pd
-import umap
+
 import h5py
 from scipy import signal
 
@@ -321,67 +319,93 @@ def classify_floor_type(
 
     return dlc_step_floor
 
+def get_ethogram_annotated_files(cfg):
+    ethogram_results = {}
+    for dirs in cfg.data.ethogram_labels_path:
+        for root, dirs, files in os.walk(os.path.join(dirs, "DATA")):
+            for file in files:
+                if file.endswith(".h5"):
+                    ethogram_results[file[:-11]] = os.path.join(root, file)
+    return ethogram_results
 
-# ====================================================================================
+def get_dlc_annotated_files(cfg):
+    trial_names = [os.path.basename(x.split(".mp4")[0]) for x in glob.glob(os.path.join(cfg.data.dlc_labels_path, "*.mp4"))]
+    dlc_results = {}
+    for trial_name in trial_names:
+        dlc_results[trial_name] = os.path.join(
+            cfg.data.dlc_labels_path, f"{trial_name}DLC_effnet_b6_rat_stepsDec12shuffle1_1030000.h5")
+        
+    return dlc_results
 
-# Load Images
-def load_images_from_folder(folder, extention="*.jpg"):
-    images = []
-    filenames_path = glob.glob(os.path.join(folder, extention))
-    for filename in os.listdir(folder):
-        img = cv2.imread(os.path.join(folder, filename), cv2.IMREAD_GRAYSCALE)
-        if img is not None:
-            images.append(img)
-    return np.array(images), os.listdir(folder)
+def get_valid_step_idx(cfg, trial_name, graph_preview):
+    # DeepEthogram annotated files
+    ethogram_results = get_ethogram_annotated_files(cfg)
 
+    # DeepLabCut annocated files
+    dlc_results = get_dlc_annotated_files(cfg)
 
-def extract_onset_images(video_path, filtered_peaks, df_coords, folder="./tmp_images/"):
-    # Extract images corresponding to peak position
+    assert os.path.exists(dlc_results[trial_name])
+    assert os.path.exists(ethogram_results[trial_name])
 
-    # Clear destination folder
-    for filename in os.listdir(folder):
-        file_path = os.path.join(folder, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            print("Failed to delete %s. Reason: %s" % (file_path, e))
+    # DeepLabCut =========================================================================
+    df_coords, df_coords_f = extract_coordinates(
+        dlc_results[trial_name],
+        set_reference="x",
+        graph_preview=cfg.extraction.preview.raw_dlc_trace
+    )
+    dlc_filtered_steps = extract_footstrike_onsets_f(
+        df_coords,
+        df_coords_f,
+        graph_preview=cfg.extraction.preview.dlc_extracted_onset)
 
-    cap = cv2.VideoCapture(video_path)
-    for frame_num in filtered_peaks:
-        cap.set(1, frame_num)
-        flag, frame = cap.read()
-        cv2.imwrite(os.path.join(folder, f"{frame_num:07d}.jpg"), frame)
+    # DeepEthogram =========================================================================
+    bout_percentiles_file_path = cfg.data.bout_percentiles_path
 
-    # Cluster the images using kmeans
+    with h5py.File(bout_percentiles_file_path, "r") as f:
+        percentiles = f['percentiles'][()]
 
-    # Perform UMAP clustering
-    images, filenames = load_images_from_folder(folder)
+    probabilities, thresholds = read_ethogram_result(
+        ethogram_results[trial_name])
 
-    # Crop all images
-    cropped_im_f = []
-    crop_x = 50
-    crop_y = 200
+    predictions = get_ethogram_predictions(
+        percentiles,
+        probabilities,
+        thresholds
+    )
 
-    for image, filename in zip(images, filenames):
-        # Get image number
-        im_index = int(os.path.basename(filename[:-4]))
+    confident_step_idx = thresh_step_confidence(
+        dlc_filtered_steps,
+        df_coords_f,
+        probabilities,
+        valid_threshold=cfg.extraction.process.ethogram_confidence_thresh,
+        graph_preview=cfg.extraction.preview.ethogram_step_confidence
+    )
 
-        # Crop images according to x, y coordinates of the foot
-        x_coor_f = round(df_coords.iloc[im_index, 0])
-        y_coor_f = round(df_coords.iloc[im_index, 1])
+    motion_step_idx = thresh_step_motion(
+        dlc_filtered_steps,
+        df_coords_f,
+        predictions,
+        graph_preview=cfg.extraction.preview.ethogram_step_motion
+    )
 
-        # Crop image
-        cropped_im_f.append(
-            image[y_coor_f - crop_y: y_coor_f + 20,
-                  x_coor_f - crop_x: x_coor_f + crop_x]
-        )
-        # plt.imshow(image[y_coor_f+30:y_coor_f+crop_y, x_coor_f-crop_x:x_coor_f+crop_x])
-        # plt.show()
+    valid_step_idx = confident_step_idx*motion_step_idx
+    print(f"Ethogram: Valid onsets:{sum(valid_step_idx)}")
 
-    images = images.reshape(images.shape[0], -1)
-    embedding = umap.UMAP().fit_transform(images[:, :])
+    if graph_preview:
+        # plot classified steps
+        y = df_coords_f["foot_y"].iloc[:]
+        fig = plt.figure(figsize=(60, 4))
+        ax = fig.add_subplot(111)
+        trans = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
 
-    return embedding, filenames
+        ax.plot(y, lw=1, c="k")
+        ax.plot(
+            dlc_filtered_steps[valid_step_idx],
+            y[dlc_filtered_steps[valid_step_idx]], "x", c="g")
+        ax.plot(
+            dlc_filtered_steps[~valid_step_idx],
+            y[dlc_filtered_steps[~valid_step_idx]], "x", c="r")
+        ax.fill_between(np.arange(len(y)), 0, 1, where=predictions[:, 1]==1 ,facecolor='grey', alpha=0.5, transform=trans)
+        plt.show()
+
+    return valid_step_idx

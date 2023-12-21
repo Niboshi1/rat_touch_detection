@@ -2,6 +2,7 @@ data:
   config_file: config.yaml
   dlc_labels_path: /mnt/LS_inada/Data/Projects/S1/202305-/videos/
   ethogram_labels_path:
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/"
   - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_0/"
   - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_1/"
   - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_2/"
@@ -18,5 +19,6 @@ extraction:
     dlc_extracted_onset: False
     ethogram_step_confidence: False
     ethogram_step_motion: False
+    valid_step: True
   process:
     ethogram_confidence_thresh: 0.3
