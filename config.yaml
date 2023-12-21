@@ -1,0 +1,22 @@
+data:
+  config_file: config.yaml
+  dlc_labels_path: /mnt/LS_inada/Data/Projects/S1/202305-/videos/
+  ethogram_labels_path:
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_0/"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_1/"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_2/"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_3/"
+  bout_percentiles_path: "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/DATA/bout_percentiles.h5"
+  class_names:
+  - background
+  - walk
+  - floor
+  - touch
+extraction:
+  preview:
+    raw_dlc_trace: False
+    dlc_extracted_onset: False
+    ethogram_step_confidence: False
+    ethogram_step_motion: False
+  process:
+    ethogram_confidence_thresh: 0.3
