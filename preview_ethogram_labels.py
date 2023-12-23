@@ -1,13 +1,16 @@
 import h5py
 
 import matplotlib.pyplot as plt
+from omegaconf import OmegaConf
 import utils
 
+# Load config
+cfg = OmegaConf.load('config.yaml')
 
-prediction_file_path = "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/DATA/05072023_rat_s1_n_1_000/05072023_rat_s1_n_1_000_outputs.h5"
-bout_percentiles_file_path = "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/DATA/bout_percentiles.h5"
+pred_dict = utils.get_ethogram_annotated_files(cfg)
+prediction_file_path = pred_dict[list(pred_dict.keys())[10]]
 
-with h5py.File(bout_percentiles_file_path, "r") as f:
+with h5py.File(cfg.data.bout_percentiles_path, "r") as f:
     percentiles = f['percentiles'][()]
 
 probabilities, thresholds = utils.read_ethogram_result(prediction_file_path, model='resnet18')
