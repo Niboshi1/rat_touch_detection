@@ -347,8 +347,12 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
     # DeepLabCut annocated files
     dlc_results = get_dlc_annotated_files(cfg)
 
-    assert os.path.exists(dlc_results[trial_name])
-    assert os.path.exists(ethogram_results[trial_name])
+    try:
+        assert os.path.exists(dlc_results[trial_name])
+        assert os.path.exists(ethogram_results[trial_name])
+    except AssertionError:
+        print("Missing file for trial:", trial_name)
+        return np.array([])
 
     # DeepLabCut =========================================================================
     df_coords, df_coords_f = extract_coordinates(
