@@ -13,7 +13,7 @@ from scipy import signal
 import deepethogram.postprocessing
 
 
-def fix_limb_positions(df_in, set_reference):
+def calibrate_limb_positions(df_in, set_reference):
     # Funtion to subtract sholder position from elbow and foot coordinates
     # make empty DataFrame
     df_out = pd.DataFrame()
@@ -46,7 +46,7 @@ def apply_filter(
     df_out = pd.DataFrame()
 
     # subtract and fix coordinates
-    df_fixed = fix_limb_positions(df_in, set_reference)
+    df_fixed = calibrate_limb_positions(df_in, set_reference)
 
     # low pass filter (7 Hz) with Butterworth filter 4th order
     if filter == "mean":
@@ -59,7 +59,7 @@ def apply_filter(
     elif filter == "bandpass":
         for column_index in df_fixed.columns:
             df_out[column_index] = butter_lowpass_filter(
-                df_fixed[column_index], 7, 60, order=4
+                df_fixed[column_index], low_pass, 60, order=4
             )
     else:
         df_out = df_fixed.copy()
@@ -86,7 +86,7 @@ def extract_coordinates(
         dlc_file_path,
         set_reference="",
         graph_preview=False,
-        preview_range=[0, 200],
+        preview_range=[0, 2000],
         filter="mean",
         low_pass=30,
 ):
@@ -104,7 +104,7 @@ def extract_coordinates(
 
     if graph_preview:
         # Trimming for visualization
-        fig = plt.figure(figsize=(20, 8))
+        fig = plt.figure(figsize=(10, 6), dpi=300)
         ax1 = fig.add_subplot(411)
         ax2 = fig.add_subplot(412)
         ax3 = fig.add_subplot(413)
@@ -126,9 +126,9 @@ def extract_coordinates(
 
         for ax in [ax1, ax2, ax3, ax4]:
             ax.set_yticks([])
-            ax.set_xticks(np.arange(preview_range[0], preview_range[1], 60))
+            ax.set_xticks(np.arange(preview_range[0], preview_range[1], 60*5))
             ax.set_xticklabels(
-                np.arange(0, (preview_range[1] - preview_range[0]) / 60, 1))
+                np.arange(0, (preview_range[1] - preview_range[0]) / 60, 5))
             ax.spines["top"].set_visible(False)
             ax.spines["right"].set_visible(False)
 
@@ -146,11 +146,11 @@ def max_height_index(peak_idx, coords_y):
 
 
 def adjust_peak_idx(filtered_peaks, y):
-
+    y_data = y.values
     adjusted_peaks = []
     for i in range(len(filtered_peaks)):
         try:
-            if y[filtered_peaks[i]+1] - y[filtered_peaks[i]] > 1:
+            if y_data[filtered_peaks[i]+1] - y_data[filtered_peaks[i]] > 1:
                 adjusted_peaks.append(filtered_peaks[i]+1)
             else:
                 adjusted_peaks.append(filtered_peaks[i])
@@ -160,7 +160,7 @@ def adjust_peak_idx(filtered_peaks, y):
     return adjusted_peaks
 
 
-def extract_footstrike_onsets_f(
+def extract_step_onsets(
         df_coords,
         df_coords_f,
         hight_cutoff=False,
@@ -308,20 +308,44 @@ def thresh_step_motion(
 
 
 def classify_floor_type(
-    dlc_filtered_steps,
-    predictions
+    cfg,
+    trial_name,
+    step_idx
 ):
-    # detect whether the rat was in motion at detected step idx
-    dlc_step_floor = [predictions[step_idx, 2]
-                      for step_idx in dlc_filtered_steps]
-    dlc_step_floor = np.array(dlc_step_floor, dtype=np.int32)
+    # DeepEthogram annotated files
+    ethogram_results = get_ethogram_annotated_files(cfg)
 
-    return dlc_step_floor
+    probabilities, thresholds = read_ethogram_result(
+        ethogram_results[trial_name])
+    
+    # DeepEthogram =========================================================================
+    bout_percentiles_file_path = cfg.paths.bout_percentiles
+
+    with h5py.File(bout_percentiles_file_path, "r") as f:
+        percentiles = f['percentiles'][()]
+
+    probabilities, thresholds = read_ethogram_result(
+        ethogram_results[trial_name])
+    
+    print(f"Ethogram: N-frames = {len(probabilities)}")
+
+    predictions = get_ethogram_predictions(
+        percentiles,
+        probabilities,
+        thresholds
+    )
+
+    # detect whether the rat was in motion at detected step idx
+    step_floor = [predictions[step_idx, 2]
+                      for step_idx in step_idx]
+    step_floor = np.array(step_floor, dtype=np.int32)
+
+    return step_floor
 
 
 def get_ethogram_annotated_files(cfg):
     ethogram_results = {}
-    for dirs in cfg.data.ethogram_labels_path:
+    for dirs in cfg.paths.ethogram_labels:
         for root, dirs, files in os.walk(os.path.join(dirs, "DATA")):
             for file in files:
                 if file.endswith(".h5"):
@@ -331,11 +355,11 @@ def get_ethogram_annotated_files(cfg):
 
 def get_dlc_annotated_files(cfg):
     trial_names = [os.path.basename(x.split(".mp4")[0]) for x in glob.glob(
-        os.path.join(cfg.data.dlc_labels_path, "*.mp4"))]
+        os.path.join(cfg.paths.dlc_labels, "*.mp4"))]
     dlc_results = {}
     for trial_name in trial_names:
         dlc_results[trial_name] = os.path.join(
-            cfg.data.dlc_labels_path, f"{trial_name}DLC_effnet_b6_rat_stepsDec12shuffle1_1030000.h5")
+            cfg.paths.dlc_labels, f"{trial_name}DLC_effnet_b6_rat_stepsDec12shuffle1_1030000.h5")
 
     return dlc_results
 
@@ -360,19 +384,23 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
         set_reference="x",
         graph_preview=cfg.extraction.preview.raw_dlc_trace
     )
-    dlc_filtered_steps = extract_footstrike_onsets_f(
+    print(f"DLC: N-frames = {len(df_coords)}")
+    dlc_filtered_steps = extract_step_onsets(
         df_coords,
         df_coords_f,
         graph_preview=cfg.extraction.preview.dlc_extracted_onset)
+    
 
     # DeepEthogram =========================================================================
-    bout_percentiles_file_path = cfg.data.bout_percentiles_path
+    bout_percentiles_file_path = cfg.paths.bout_percentiles
 
     with h5py.File(bout_percentiles_file_path, "r") as f:
         percentiles = f['percentiles'][()]
 
     probabilities, thresholds = read_ethogram_result(
         ethogram_results[trial_name])
+    
+    print(f"Ethogram: N-frames = {len(probabilities)}")
 
     predictions = get_ethogram_predictions(
         percentiles,
@@ -384,7 +412,7 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
         dlc_filtered_steps,
         df_coords_f,
         probabilities,
-        valid_threshold=cfg.extraction.process.ethogram_confidence_thresh,
+        valid_threshold=cfg.extraction.ethogram.step_confidence,
         graph_preview=cfg.extraction.preview.ethogram_step_confidence
     )
 
@@ -401,7 +429,7 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
     if graph_preview:
         # plot classified steps
         y = df_coords_f["foot_y"].iloc[:]
-        fig = plt.figure(figsize=(60, 4))
+        fig = plt.figure(figsize=(10, 4))
         ax = fig.add_subplot(111)
         trans = mtransforms.blended_transform_factory(
             ax.transData, ax.transAxes)
@@ -415,6 +443,8 @@ def get_valid_step_idx(cfg, trial_name, graph_preview):
             y[dlc_filtered_steps[~valid_step_idx]], "x", c="r")
         ax.fill_between(np.arange(len(
             y)), 0, 1, where=predictions[:, 1] == 1, facecolor='grey', alpha=0.5, transform=trans)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         plt.show()
 
     return dlc_filtered_steps[valid_step_idx]

@@ -10,7 +10,7 @@ cfg = OmegaConf.load('config.yaml')
 pred_dict = utils.get_ethogram_annotated_files(cfg)
 prediction_file_path = pred_dict[list(pred_dict.keys())[10]]
 
-with h5py.File(cfg.data.bout_percentiles_path, "r") as f:
+with h5py.File(cfg.paths.bout_percentiles, "r") as f:
     percentiles = f['percentiles'][()]
 
 probabilities, thresholds = utils.read_ethogram_result(prediction_file_path, model='resnet18')

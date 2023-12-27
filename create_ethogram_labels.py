@@ -14,7 +14,7 @@ cfg = OmegaConf.load('config.yaml')
 
 # Video names
 trial_names = [os.path.basename(x.split(".mp4")[0]) for x in glob.glob(
-    os.path.join(cfg.data.dlc_labels_path, "*.mp4"))]
+    os.path.join(cfg.paths.dlc_labels, "*.mp4"))]
 
 ethogram_results = utils.get_ethogram_annotated_files(cfg)
 
@@ -47,7 +47,7 @@ for trial_name in trial_names:
 
         if len(valid_step_idx) > 0:
             # load predictions
-            bout_percentiles_file_path = cfg.data.bout_percentiles_path
+            bout_percentiles_file_path = cfg.paths.bout_percentiles
 
             with h5py.File(bout_percentiles_file_path, "r") as f:
                 percentiles = f['percentiles'][()]

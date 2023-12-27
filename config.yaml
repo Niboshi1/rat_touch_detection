@@ -1,13 +1,16 @@
-data:
+paths:
   config_file: config.yaml
-  dlc_labels_path: /mnt/LS_inada/Data/Projects/S1/202305-/videos/
-  ethogram_labels_path:
+  dlc_labels: /mnt/LS_inada/Data/Projects/S1/202305-/videos/
+  ethogram_labels:
   - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/"
-  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_0/"
-  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_1/"
-  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_2/"
-  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram_3/"
-  bout_percentiles_path: "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/DATA/bout_percentiles.h5"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram0/"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram1/"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram2/"
+  - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram3/"
+  bout_percentiles: "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/DATA/bout_percentiles.h5"
+  task_config: ./s1_task_details.csv
+  dat_dir: /mnt/LS_inada/Data/Projects/S1/202305-/Open Ephys/
+data:
   class_names:
   - background
   - walk
@@ -20,5 +23,12 @@ extraction:
     ethogram_step_confidence: False
     ethogram_step_motion: False
     valid_step: True
-  process:
-    ethogram_confidence_thresh: 0.3
+  ethogram:
+    step_confidence: 0.3
+  dat:
+    sampling_rate: 30000
+    downsampling_ratio: 15
+    num_chs: 40
+    num_ads_chs: 8
+
+
