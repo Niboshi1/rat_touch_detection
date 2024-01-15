@@ -8,7 +8,7 @@ paths:
   - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram2/"
   - "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram3/"
   bout_percentiles: "/media/erato_0/Data1/ethogram_workspace/walk_touch_floor_deepethogram/DATA/bout_percentiles.h5"
-  task_config: ./s1_task_details.csv
+  task_config: ./conversion_tables/s1_task_details.csv
   dat_dir: /mnt/LS_inada/Data/Projects/S1/202305-/Open Ephys/
 data:
   class_names:
@@ -30,5 +30,7 @@ extraction:
     downsampling_ratio: 15
     num_chs: 40
     num_ads_chs: 8
+  filter:
+    motion: False
 
 
